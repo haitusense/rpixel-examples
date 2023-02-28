@@ -1,0 +1,183 @@
+# imager
+
+## 画像の読み込み、表示
+
+```{r}
+library(imager)
+boats
+plot(boats, main="Boats") 
+```
+
+```{r}
+library(imager)
+data <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value)
+max(data$x)
+max(data$y)
+value <- data$value
+i <- as.cimg(value, x=256, y=384)
+plot(i, interp=FALSE, axes=FALSE, main="Sample")
+```
+
+[as.cimg](https://www.rdocumentation.org/packages/imager/versions/0.42.10/topics/as.cimg)  
+[plot.cimg](https://www.rdocumentation.org/packages/imager/versions/0.42.13/topics/plot.cimg)
+
+```
+interpolate (interp) : should the image be plotted with antialiasing (default TRUE)
+axes                 : Whether to draw axes (default TRUE)
+main                 : Main title
+```
+
+## エリアの限定
+
+```{r}
+library(imager)
+library(dplyr)
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value)
+df[4 <= df$x & df$x <= 14, ]$value <- 0
+i <- as.cimg(df)
+plot(i, interp=FALSE, axes=FALSE, main="Sample")
+```
+
+```{r}
+library(imager)
+library(dplyr)
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value)
+mean(df$value)
+mean(df[1 <= df$x & df$x <= 2,]$value)
+```
+
+## HOB
+
+### ラインプロファイル
+
+```{r}
+library(imager)
+library(dplyr)
+library(rpixel)
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value)
+
+df1 <- df %>% 
+  group_by(y) %>%
+  summarize(n = n(), mean = mean(value), sd = sd(value))
+head(df1)
+
+# df2 <- left_join(df, df2[,c("y", "mean")]) %>% select(any_of(c("x", "y", "mean")))
+# df2 <- dplyr::rename(df3, c("value" = "mean"))
+df2 <- left_join(df, df1[,c("y", "mean")]) %>% select(x = x, y = y, value = mean)
+
+plot(as.cimg(df2), interp=FALSE, axes=FALSE, main="Sample")
+hist(df2$value, breaks = seq(min(df2$value),max(df2$value), length.out = 11))
+```
+
+### hob減算
+
+```{r}
+library(imager)
+library(dplyr)
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value) %$% {
+    ob <- .[3 <= .$x & .$x <= 44,] %>%
+      group_by(y) %>%
+      summarize(n = n(), ob = mean(value))
+    left_join(., ob[,c("y", "ob")], by = c("y"))
+  } %>%
+  mutate(diff = value - ob) %>%
+  select(x = x, y = y, org = value, ob = ob, value = diff)
+head(df)
+
+plot(as.cimg(df))
+
+# clip
+df[df$value >= 0.4,]$value <- 0.4
+df[df$value <= -0.4,]$value <- -0.4
+hist(df$value)
+```
+
+```{r}
+# reframe, place holder, mutate使用した書き換え
+library(imager)
+library(rpixel)
+library(dplyr)
+
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value)
+
+df2 <- df[21 <= df$x & df$x <= 120,] %>%
+  group_by(y) %>%
+  reframe(n = n(), ob = median(value)) %>%
+  left_join(df, .[,c("y", "ob")], by = c("y"), multiple = "all") %>%
+  mutate(diff = value - ob) %>%
+  select(x = x, y = y, org = value, ob = ob, value = diff) %>%
+  mutate(value = if_else(value < -30, true = -30, false = value)) %>%
+  mutate(value = if_else(value > 30, true = 30, false = value))
+
+head(df2)
+hist(df2$value)
+# plot(as.cimg(df2))
+```
+
+## bayer
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+p <- rpixel$new("FT50A")
+p$pixel$read_file("../20220916_004231_577733_0.raw")
+df <- p$img_df()
+
+df$bayer <- c(rep("m",nrow(df)))
+df[df$x %% 2 == 0 & df$y %% 2 == 0,]$bayer <- "R"
+df[df$x %% 2 == 0 & df$y %% 2 == 1,]$bayer <- "Gr"
+df[df$x %% 2 == 1 & df$y %% 2 == 0,]$bayer <- "Gb"
+df[df$x %% 2 == 1 & df$y %% 2 == 1,]$bayer <- "B"
+
+hist(df[df$bayer == "R",]$value)
+hist(df[df$bayer == "Gr",]$value)
+hist(df[df$bayer == "Gb",]$value)
+hist(df[df$bayer == "B",]$value)
+```
+
+```df[df$x %% 2 == 1 & df$y %% 2 == 1,]$bayer <- "B"```遅いので後でrustで実装する
+
+
+```{r}
+library(imager)
+set.seed(1)
+imnoise(100,100) %>% isoblur(3) %>%
+    threshold(0) %>% split_connected %>%
+    purrr::keep(~ sum(.) > 200) %>% plot
+```
+
+```{r}
+library(imager)
+library(dplyr)
+df <- as.data.frame(boats) %>% 
+  filter(cc == 1) %>% 
+  select(x=x,y=y,value=value) %$% {
+    ob <- .[3 <= .$x & .$x <= 44,] %>%
+      group_by(y) %>%
+      summarize(n = n(), ob = mean(value))
+    left_join(., ob[,c("y", "ob")], by = c("y"))
+  } %>%
+  mutate(diff = value - ob) %>%
+  select(x = x, y = y, value = diff)
+df[df$value <= 0,]$value <- 0
+df[df$value >= 1,]$value <- 1
+df <- df[df$y <= max(df$x),]
+im <- as.cimg(df)
+plot(im)
+ff <- FFT(im)
+plot(ff$real,main="Real part of the transform")
+hist(as.data.frame(ff$real)$value)
+```

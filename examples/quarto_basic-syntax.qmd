@@ -1,0 +1,169 @@
+# basic-syntax
+
+## operator
+
+|type|op|note|
+|:--:|:--:|:--|
+| assignment | <- | Left assignment, binary |
+|            | =  | Left assignment, binary |
+|            | -> | Right assignment, binary |
+|            | <<- | 永続代入(スコープを抜けても有効な代入) |
+|            | ->> | 永続代入(スコープを抜けても有効な代入) |
+| arithmetic | +  | Plus, can be unary or binary |
+|            | -  | Minus, can be unary or binary |
+|            | *  | Multiplication, binary |
+|            | /  | Division, binary |
+|            | ^  | Exponentiation, binary |
+|            | ** | Exponentiation, binary |
+|            | %% | Modulus, binary 剰余 |
+|            | %/% | Integer divide, binary |
+| Matrix     | %*% | Matrix product, binary |
+|            | %o% | Outer product, binary |
+|            | %x% | Kronecker product, binary |
+| relational | >    | Greater than, binary |
+|            | <    | Less than, binary |
+|            | >=   | Greater than or equal to, binary |
+|            | <=   | Less than or equal to, binary |
+|            | ==   | Equal to, binary |
+|            | !=   | |
+|            | %in% | Matching operator, binary (in model formulae: nesting) 真部分集合 (⊂) |
+| logical    | &     | And, binary, vectorized |
+|            | \|    | Or, binary, vectorized |
+|            | !     | Unary not |
+|            | &&    | And, binary, not vectorized (短絡評価) |
+|            | \|\|  | Or, binary, not vectorized (短絡評価) |
+|            | xor() | xor | 
+|            | all |  | 
+|            | any |  | 
+| other      | :     | 連続する数値 |
+|            | $     | List subset, binary データセットの中の要素 |
+|            | []    | ベクトルの中の要素 |
+|            | ~     | Tilde, used for model formulae, can be either unary or binary |
+|            | \|>   | Pipes |
+|            | ?     | Help |
+| magrittr   | %>%   | ipe an object forward into a function or call expression |
+|            | %<>%   | Pipe an object forward into a function or call expression and update the lhs object with the resulting value. |
+|            | %T>%  | Pipe a value forward into a function- or call expression and return the original value instead of the result. (途中にグラフ描画を挟める) |
+|            | %$%   | Expose the names in lhs to the rhs expression (変数処理を挟める) |
+
+### 短絡評価
+
+ベクトルの評価で差が出る
+
+```{r}
+c(TRUE, TRUE, FALSE, FALSE) & c(TRUE, FALSE, TRUE, FALSE)
+# [1]  TRUE FALSE FALSE FALSE
+c(TRUE, TRUE, FALSE, FALSE) && c(TRUE, FALSE, TRUE, FALSE)
+#[1] TRUE
+```
+
+### magrittr Pipe
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+iris %>% 
+  filter(Species == "setosa") %$% {
+    plot(Sepal.Length, Petal.Width)
+    x <<- mean(Sepal.Length)
+    .
+  } %>%
+  filter(Sepal.Length > 5) %T>%
+  plot() %>%
+  head()
+x
+```
+
+
+## OPP比較
+
+RではOOPはS3, S4, R5(RC), R6と複数ある
+
+```{r}
+S3 <- list(name="Taro", kinds="dog")
+S3
+
+class(S3) <- 'animal'
+plot.animal <- function(animal) {
+  cat(animal$name, '\n')
+  cat(animal$kinds, '\n')
+}
+plot(S3)
+```
+
+```{r}
+setClass(
+  "animal",
+  representation(
+    name="character",
+    kind="character",
+    age="numeric"
+  )
+)
+dog <- new("animal", name="Taro", kind="dog", age=6)
+dog
+setGeneric(
+  "s4method",
+  function(x) {
+    standardGeneric("s4method")
+  }
+)
+setMethod(
+  "s4method", 
+  c(x="animal"),
+  function(x) { 
+    paste(x@name, "is animal") 
+  }
+)
+s4method(dog)
+
+```
+
+```{r}
+ClassR5 <- setRefClass(
+  Class = "ClassR5",
+  fields = list(
+    width = "numeric",
+    height = "numeric",
+    depth = "numeric",
+    v = "numeric"
+  ),
+  methods = list(
+    CalcContent = function(){
+      v <<- width * height * depth
+    },
+    PrintResult = function(){
+      print(v)
+    }
+  )
+)
+c <- ClassR5$new(width = 10, height = 20, depth = 30)
+c$CalcContent()
+c$PrintResult()
+```
+
+```{r}
+library(R6)
+Person <- R6Class("Person",
+  public = list(
+    name = NULL,
+    hair = NULL,
+    initialize = function(name = NA, hair = NA) {
+      self$name <- name
+      self$hair <- hair
+      self$greet()
+    },
+    set_hair = function(val) {
+      self$hair <- val
+    },
+    greet = function() {
+      cat(paste0("Hello, my name is ", self$name, ".\n"))
+    }
+  )
+)
+
+ann <- Person$new("Ann", "black")
+ann
+```

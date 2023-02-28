@@ -1,0 +1,224 @@
+# plot
+
+```{r}
+df <- data.frame(x = 1:20, y = 1:20)
+plot(df)
+```
+
+```{r}
+df <- data.frame(x = 1:20, y = 1:20, z = 31:50)
+plot(df)
+```
+
+## hist
+
+```{r}
+vec <- iris[iris$Species %in% "setosa",]$Sepal.Length
+hist(vec, 
+  breaks = seq(min(vec),max(vec), length.out = 11))
+```
+
+hist(df2$value, 
+  breaks = seq(min(df2$value),max(df2$value), length.out = 11))
+
+```{r}
+vec <- iris[iris$Species %in% "setosa",]$Sepal.Length
+hist(vec, prob=TRUE)
+lines(density(vec), col = "orange", lwd = 2)
+lines(ecdf(vec), col = "red", lwd = 2)
+```
+
+- density : カーネル密度推定
+- ecdf : 経験的累積分布
+
+```{r}
+vec <- iris[iris$Species %in% "setosa",]$Sepal.Length
+h <- hist(vec)
+plot(0, 0, type="n", xlim=c(min(h$mids),max(h$mids)), ylim=c(0,max(h$counts)))
+lines(x=h$mids, y=h$counts, col="red")
+```
+
+```{r}
+set.seed(seed = 49078)
+n <- 1000
+x <- rchisq(n = n, df = 3)
+hist(x = x, freq = FALSE, xlim = c(0, 15))
+lines(x = density(x = x), col = "red")
+```
+
+```{r}
+data <- iris[iris$Species %in% "setosa",]
+data %>% ggplot( aes( x = Sepal.Length ) ) +
+  stat_ecdf(pad = FALSE)
+```
+
+```{r}
+library(ggplot)
+# 両対数累積分布
+data <- iris[iris$Species %in% "setosa",]
+data %>%
+  ggplot(aes(x = Sepal.Length, y = 1 - ecdf(Sepal.Length)(Sepal.Length))) +
+  geom_point() +
+  scale_x_continuous(trans = "log10", breaks = 10^(0:10))+
+  scale_y_continuous(trans = "log10", breaks = 10^(0:-10)) 
+```
+
+```{r}
+library(ggplot2)
+df <- iris[iris$Species %in% "setosa",]
+mean <- mean(df$Sepal.Length)
+sd <- sd(df$Sepal.Length)
+p3s <- mean+3*sd
+m3s <- mean-3*sd
+
+ggplot() + 
+  geom_histogram(data = df, aes(x = Sepal.Length), binwidth = 0.1) +
+  geom_vline(xintercept = mean, linetype ="solid") +
+  geom_vline(xintercept = median(df$Sepal.Length), linetype ="dashed") +
+  geom_vline(xintercept = p3s, linetype ="dotted") +
+  geom_vline(xintercept = m3s, linetype ="dotted") +
+  labs(title = "Histogram")
+```
+
+linetype
+
+- blank
+- solid
+- dashed
+- dotted
+- dotdash
+- dotdash
+- twodash
+
+[Cheatsheet](https://github.com/rstudio/cheatsheets/blob/main/data-visualization.pdf)
+
+## hist with imager
+
+```{r}
+library(imager)
+df <- as.data.frame(boats)
+head(df)
+
+#   x y cc     value
+# 1 1 1  1 0.3882353
+# 2 2 1  1 0.3858633
+# ...
+
+hist(df[df$cc == 1,]$value)
+```
+
+imager注意点
+
+- 原点座標は (1-1) = dataframeも 1 start
+- cc : 色
+- value : max 1 - min 0
+- load.image("temp.png") : depthは8bitになるので量子ノイズになる
+
+```{r}
+library(imager)
+df <- as.data.frame(grayscale(boats))
+hist(df$value)
+```
+
+```{r}
+# v-lineprofile
+library(dplyr)
+library(imager)
+df <- as.data.frame(grayscale(boats))
+df <- df %>%
+  group_by(y) %>%
+  summarize(mean = mean(value))
+head(df)
+plot(x=df$y, y=df$mean)
+```
+
+```{r}
+# h-lineprofile
+library(dplyr)
+library(imager)
+df <- as.data.frame(grayscale(boats))
+df <- df %>%
+  group_by(x) %>%
+  summarize(mean = mean(value))
+head(df)
+plot(x=df$x, y=df$mean)
+```
+
+## controlchart
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+df <- iris[iris$Species %in% "setosa",]
+mean <- mean(df$Sepal.Length)
+
+p1 <- ggplot(df, aes(x = Sepal.Length)) +
+      geom_histogram() + coord_flip() + scale_y_reverse()
+p2 <- ggplot(data=df) +
+      geom_line(aes(x=1:nrow(df), y=Sepal.Length)) +
+      geom_point(aes(x=1:nrow(df), y=Sepal.Length))
+p <- gridExtra::grid.arrange(p1, p2, nrow = 1, widths=c(1,4))
+p
+```
+
+- 1:nrow(df) : indexを使用する際、nrowでrow countを取得
+
+```{r}
+library(qicharts2)
+df <- iris[iris$Species %in% "setosa",]
+mean <- mean(df$Sepal.Length)
+
+qic(df$Sepal.Length, chart = "p")
+```
+
+
+- chart = 'i' : I control chart
+
+
+```{r}
+set.seed(19)
+y <- rnorm(24)
+
+y[13:24] <- rnorm(12, mean = 2)
+y
+qic(y, chart = 'x')
+```
+
+```{r}
+library(ggplot2)
+library(ggQC)
+ 
+### Make up some demo data (load your file here instead)
+set.seed(5555)
+Process_Data <- 
+  data.frame(
+   Process=rep(c("A"), each = 30), #Process A 
+   Run_Number=c(1:30),             #Run Order    
+   Value = c(rnorm(n = 30, mean = 30.5, sd = 1)) #Process A Random Data
+   )
+ 
+### Make the plot
+XmR_Plot <- 
+  ggplot(Process_Data, aes(x = Run_Number, y = Value)) + #init ggplot
+  geom_point() + geom_line() + # add the points and lines
+  stat_QC(method = "XmR",      # specify QC charting method
+          auto.label = T,      # Use Autolabels
+          label.digits = 2,    # Use two digit in the label
+          show.1n2.sigma = T   # Show 1 and two sigma lines
+          ) +  
+  scale_x_continuous(expand =  expand_scale(mult = .15))  # Pad the x-axis
+ 
+### Draw the plot - Done
+XmR_Plot
+```
+## map
+
+```{r}
+library(ggplot2)
+df <- data.frame(x = c(2,3,1,2,3,4,2,3), y = c(1,1,2,2,2,2,3,3), z = c(1,1.5,4,0.3,1,1.2,1.1,2.2))
+ggplot(df, aes(x = x, y = y, fill = z)) + 
+  geom_tile() +
+  geom_text(aes(label = sprintf("%0.2f", z)),
+            color = "black", size = 2.5)
+```
+

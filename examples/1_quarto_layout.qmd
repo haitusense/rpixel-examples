@@ -1,0 +1,81 @@
+---
+title: "quarto layout"
+author: ""
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+format:
+  pdf:
+    number-sections: true
+    pdf-engine: xelatex
+    documentclass: bxjsbook
+    classoption: xelatex, ja=standard, 12pt
+  html:
+    number-sections: true
+    self-contained: true
+highlight-style: tango
+---
+
+# Quarto layout
+
+## pdf
+
+pdfで日本語を使用する場合xelatexにbxjsbookなどがインストールできていないと表示されない
+
+## R
+
+### codeと結果すべて表示
+
+```{r}
+1 + 1
+```
+
+### codeの表示を止める
+
+```{r}
+#| echo: false
+1 + 1
+```
+
+```{r, echo=FALSE}
+1 + 1
+```
+
+### 実行結果のみ
+
+output=FALSEだとグラフを含めた実行結果が抑制される  
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+#| label: fig-airquality
+#| fig-cap: Temperature and ozone level.
+1 + 1
+library(ggplot2)
+ggplot(airquality, aes(Temp, Ozone)) + 
+  geom_point() + 
+  geom_smooth(method = "loess", se = FALSE)
+```
+
+## コードの評価（実行）の抑制
+
+コードを出力にエコーするだけ
+
+```{r, eval=FALSE}
+1 + 1
+library(ggplot2)
+ggplot(airquality, aes(Temp, Ozone)) + 
+  geom_point() + 
+  geom_smooth(method = "loess", se = FALSE)
+```
+
+### すべての表示を止める
+
+```{r, include=FALSE}
+1 + 1
+```
+
+### 他
+
+詳細は以下参照
+
+[https://quarto.org/docs/computations/execution-options.html](https://quarto.org/docs/computations/execution-options.html)
+[https://quarto.org/docs/computations/r.html](https://quarto.org/docs/computations/r.html)
+[https://monashdatafluency.github.io/r-rep-res/the-code-chunks.html](https://monashdatafluency.github.io/r-rep-res/the-code-chunks.html)
+[https://gedevan-aleksizde.github.io/rmarkdown-cookbook/figure-number.html](https://gedevan-aleksizde.github.io/rmarkdown-cookbook/figure-number.html)

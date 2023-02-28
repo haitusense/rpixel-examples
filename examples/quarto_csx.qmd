@@ -1,0 +1,241 @@
+# Usage of Quarto and Pixel.DLL
+
+## Pixel.DLL
+
+- pixel.DLL : rust
+- PixelSharp.DLL : C#, .Net 7.0
+- R.csx, r-lib.csx : C# scripting
+
+.Net 7.0を使用しているため、.Net 7.0ランタイムとdotnet.exeの更新必要  
+古いの一度抜いてから入れなおした方がいいかも
+
+```powershell
+dotnet tool uninstall dotnet-script -g
+dotnet tool install --global dotnet-script --version 1.4.0
+```
+
+## R
+
+### 
+
+```{r}
+#| label: code1
+#| eval: true
+#| output: asis
+#| echo; false
+
+1 + 1 %>%
+```
+
+### workingdirectoryの設定
+
+R interactiveが起動されたままだと、以前設定した内容がCode blocksをまたいで残っているので、以下のような工夫必要
+
+- setwdは絶対path  
+- 変数も毎度初期化 : ```rm( list = ls( envir = globalenv() ), envir = globalenv() )```
+- 変数スコープを利用する : ```(function(){})()```
+
+```{r}
+(function(){
+  setwd("/bin/Release/net7.0")
+  getwd()
+  a = "Hello World"
+})()
+b = "Hello World"
+```
+
+```{r}
+getwd()
+a
+b
+rm( list = ls( envir = globalenv() ), envir = globalenv() )
+getwd()
+a
+b
+```
+
+### OpenCV imshowの呼び出し
+
+```{r}
+#install.packages("imager")
+setwd("/bin/Release/net7.0")
+library(imager)
+# shell("dotnet script R.csx VIEW FT", intern=T)
+# shell("dotnet script R.csx VIEW CP", intern=T)
+shell("dotnet script R.csx ANSYS VIEW CP -f 4", intern=T)
+```
+
+### Rのでの画像表示/Rのhistを使用した分布解析
+
+depth=8bitしか使えない  
+screenでグラフ分割するとQuartoでレイアウト崩れがち  
+
+```{r}
+#install.packages("imager")
+setwd("/bin/Release/net7.0")
+library(imager)
+(function(){
+  shell("dotnet script R.csx PNG FT -o temp.png", intern=T)
+  # shell("dotnet script R.csx PNG CP -o temp.png", intern=T)
+  shell("dotnet script R.csx PNG CP160 -o temp.png -c L5", intern=T)
+  img = load.image("temp.png")
+  layout(matrix(1:2,ncol=1))
+  plot( img )
+  hist( grayscale( img ), main = "Luminance" )
+})()
+```
+
+```{r, echo=FALSE}
+setwd("/bin/Release/net7.0")
+library(imager)
+(function(){
+  layout(matrix(1:4,ncol=2))
+  for (i in 2:4) {
+    com <- paste("dotnet script R.csx ANSYS PNG CP -o temp.png -f", i)
+    shell(com, intern=T)
+    img = load.image("temp.png")
+    plot( img )
+  }
+})()
+```
+
+### FT/CPのHIST (Full Bit)
+
+```{r}
+setwd("/bin/Release/net7.0")
+library(DBI)
+
+(function(){
+  # shell("dotnet script R.csx HIST FT -o temp.db", intern=T)
+  shell("dotnet script R.csx ANSYS HIST CP -o temp.db -f 4", intern=T)
+  # shell("dotnet script R.csx HIST CPs -o temp.db", intern=T)
+  con <- dbConnect(RSQLite::SQLite(), "temp.db")
+  as.data.frame(dbListTables(con))
+  data <- dbReadTable(con, 'table1')
+
+  default.par <- par()
+  mai <- par()$mai
+  mai[4] <- mai[1]
+  par(mai = mai)
+
+  plot(x = data$N, y = data$H, log="y", ylab="", type="l")
+  par(new = T)
+  plot(x = data$N, y = data$C, log="y", ylab="", type="l", col="red", axes = FALSE)
+  axis(4)
+  mtext("Frequency(Ordinary)", side = 2, line = 2)
+  mtext("Frequency(Cumulative)", side = 4, line = 2)
+  par(new = T)
+  plot(x = data$N, y = data$H0, log="y", ylab="", type="l", col="blue", lty = 2, axes = FALSE)
+  par(new = T)
+  plot(x = data$N, y = data$H1, log="y", ylab="", type="l", col="green", lty = 2, axes = FALSE)
+  par(new = T)
+  plot(x = data$N, y = data$H2, log="y", ylab="", type="l", col="blue", lty = 2, axes = FALSE)
+  par(new = T)
+  plot(x = data$N, y = data$H3, log="y", ylab="", type="l", col="green", lty = 2, axes = FALSE)
+
+  par(default.par)
+  dbDisconnect(con)
+  file.remove("temp.db")
+})()
+
+```
+
+
+### Logからの管理図
+
+Log -> 同じ名前で複数項目あるものは区別つく名前に変更  
+数字以外出るものは先に報告
+
+```{r}
+setwd("/bin/Release/net7.0")
+library(DBI)
+library(ggplot2)
+library(gridExtra)
+
+shell("dotnet script r.csx T LOG 0 OS_POS SCK temp.db", intern=T)
+con <- dbConnect(RSQLite::SQLite(), "temp.db")
+as.data.frame(dbListTables(con))
+data <- dbReadTable(con, 'table1')
+
+p1 <- ggplot(data, aes(x = Y)) +
+      geom_histogram() + coord_flip() + scale_y_reverse()
+p2 <- ggplot(data=data) +
+      geom_line(aes(x=X, y=Y)) +
+      geom_point(aes(x=X, y=Y))
+p <- gridExtra::grid.arrange(p1, p2, nrow = 1, widths=c(1,4))
+p
+
+data
+
+dbDisconnect(con)
+file.remove("temp.db")
+```
+
+
+### ワンライナー
+
+```{r}
+path1 <- shell('dotnet script eval Console.WriteLine("$""{255,4:x}ss""");', intern=T)
+path1
+```
+
+```{r}
+buf <- shell('dotnet script', intern=T)
+var i = 10; Console.WriteLine("");
+var b = 20; Console.WriteLine("");
+Console.WriteLine($" {i} or {b} ");
+Console.WriteLine($""" "{i}" and "{b}" """);
+#exit
+buf
+
+buf2 <- shell('dotnet script', intern=T)
+var i = 10;
+var b = 20;
+Console.Write($" {i} or {b} ");
+Console.Write($""" "{i}" and "{b}" """);
+#exit
+buf2
+strsplit(buf, split = "> ")
+```
+
+```{r}
+library(stringr)
+buf <- shell('dotnet script', intern=T)
+var i = 10; Console.WriteLine("");
+var b = 20; Console.WriteLine("");
+Console.WriteLine($" {i} or {b} ");
+Console.WriteLine($""" <"{i}"> and "{b}" """);
+for(var n=0;n<2;n++){
+  Console.WriteLine(n);
+}
+#exit
+str_view(paste(buf, collapse = "\n"), '<[^<>]*?>', match = TRUE)
+str_extract(paste(buf, collapse = "\n"), pattern='<[^<>]*?>')
+```
+
+## Read LogFile
+
+
+```{r}
+library(stringr)
+
+root <- "../"
+lot <- c("HS0156700A")
+wf <- c("HS01567-20B6", "HS01567-20B7")
+chip <- c("*")
+
+loglist <- c()
+for (i in lot){
+ for (j in wf){
+  for (k in chip){
+   print(paste(i,j,k))
+   list.dirs()
+  #  loglist <- c(loglist,list.files("../20230215_P320_CP_HS0156700A_0", pattern=".txt"), pattern=".*_.*_CP_HS0156700A_.*")
+  }
+ }
+}
+loglist
+
+```
+
+

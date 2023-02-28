@@ -1,0 +1,59 @@
+# 正規表現比較
+
+```rust
+let mut src = String::new();
+let mut file = File::open(path).context("file not found")?;
+let _ = file.read_to_string(&mut src).context("read file err")?;
+
+let re = Regex::new(r"\s*([a-zA-Z0-9]+)=(.*)\s*").unwrap();
+for caps in re.captures_iter(src.as_str()) {
+  // println!("{:?}", caps);
+  println!("{caps:?}");
+}
+// Captures({0: Some("LotId=HS0156700A\r\n"), 1: Some("LotId"), 2: Some("HS0156700A\r")})
+// Captures({0: Some("Id=HT01\r\n"), 1: Some("Id"), 2: Some("HT01\r")})
+// ...
+```
+
+- 文字リテラルとしてRaw string```r```が使える
+  - 文字リテラルで複数行も
+- 文字フォーマット```{:?}```(```fmt::Debug```)で制御文字の可視化も容易
+
+- RegexBuilderのmulti_lineで^行頭と一致し、$行末一致可能
+
+```{r}
+library(stringr)
+library(readr)
+
+src <- read_file("..//20230215_P320_CP_HS0156700A_0/JHS20T1AC0_HS0156700A_20_CP23020028.00_CP1_20230217003902.txt")
+dst <- str_match_all(src, pattern = "\\s*([a-zA-Z0-9]+)=(.*)\\s*")
+dst
+      # [,1]                                        [,2]        [,3]
+#  [1,] "LotId=HS0156700A\r\n"                      "LotId"    "HS0156700A"
+#  [2,] "Id=HT01\r\n"                               "Id"       "HT01"
+# ...
+```
+
+- dataframeに直に流し込める
+
+```cs
+using System.Text.RegularExpressions;
+
+var src = File.ReadAllText("..//20230215_P320_CP_HS0156700A_0/JHS20T1AC0_HS0156700A_20_CP23020028.00_CP1_20230217003902.txt");
+var re = new Regex($"""\s*([a-zA-Z0-9]+)=(.*)\s*""", RegexOptions.Multiline);
+var dst = re.Matches(src);
+foreach(Match i in dst) {
+  Console.WriteLine($"{i.Index} {i.Value}");
+}
+// 15 LotId=HS0156700A
+// 
+// 42 Id=HT01
+// ...
+```
+
+- 文字リテラルとして```$@" "``` ```$""" """```が使える
+  - 複数行も可
+- 出現位置(Index)の取得ができる
+- RegexOptions.Multiline指定で```^$```を行頭・行末にもマッチにできる
+  - ```\u+000D```が考慮されないのでハマりがち(```\r?$```でないとマッチしない)
+- 制御文字を可視化するには一工夫必要

@@ -1,0 +1,64 @@
+# Usage of Quarto and Pixel.DLL
+
+## R.csx
+
+管理者権限で起動しないと、怒られる
+
+```powershell
+dotnet script R.csx REMOTE DUMMY
+```
+
+### REMOTEでのヒストグラム
+
+```{r}
+library(jsonlite)
+library(curl)
+
+# ステータスの取得
+req <- fromJSON("http://localhost:8080/")
+req
+```
+
+```{r}
+# httrとcurlの衝突warningでるけど気にしない
+library(httr)
+waitjson <- function(){
+  for (i in 1:20){
+    req <- fromJSON("http://localhost:8080/")
+    Sys.sleep(1)
+    if(req$Status != "BUSY") return(req);
+  }
+}
+
+E <- list( Command ="", Lot="A000", Wf=1, Chip=1, Cond="Dark", Frame=c(1,2))
+POST("http://localhost:8080/", body=E, encode = "json")
+result <- waitjson();
+result
+
+plot(x=result$x, y=result$y)
+
+```
+
+```{r}
+A <- c("aa", "df")
+B <- c(34,1)
+D <- data.frame(A,B)
+D
+json <- toJSON(D)
+json
+```
+
+
+```{r}
+library(yaml)
+filename <- tempfile()
+con <- file(filename, "w")
+write_yaml(data.frame(a=1:10, b=letters[1:10], c=11:20), con)
+con
+
+y <- as.yaml(data.frame(a=1:10, b=letters[1:10], c=11:20))
+y
+yaml.load(y)
+```
+
+

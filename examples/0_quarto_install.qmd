@@ -1,0 +1,108 @@
+---
+title: "Quarto Description"
+author: "ak"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+format:
+  pdf:
+    number-sections: true
+    pdf-engine: xelatex
+    documentclass: bxjsbook
+    classoption: xelatex, ja=standard, 12pt
+  html:
+    number-sections: true
+    self-contained: true
+highlight-style: tango
+---
+
+## 1. Installation
+
+### 1-1. install R
+
+[https://cran.ism.ac.jp/](https://cran.ism.ac.jp/)  
+[https://quarto.org/docs/get-started/](https://quarto.org/docs/get-started/)
+
+
+```powershell
+ps> R-4.2.2-win.exe
+ps> quarto-1.2.269-win.msi
+```
+
+all userでないとパッケージ関係でトラブルかも
+
+### 1-2. install packages
+
+Rを管理者権限で起動
+
+```R
+R> install.packages("tinytex")
+R> tinytex::install_tinytex()
+
+# 日本語関係パッケージのインストール
+R> tinytex::tlmgr_repo("http://ftp.jaist.ac.jp/pub/CTAN/systems/texlive/tlnet/")
+R> tinytex::tlmgr_install("collection-langjapanese")
+
+# VSCode関連
+R> install.packages("languageserver")
+R> install.packages("httpgd")
+R> install.packages("ragg")
+
+R> install.packages("tidyverse")
+```
+
+### 1-3. install VSCode extensions
+
+- R
+  - setting > Use HttpgdをOn
+- R Debugger
+- Quarto
+
+
+## 2. Usage
+
+### 2-1. create file
+
+headerに記述
+
+```R
+---
+title: "Quarto Description"
+author: "ak"
+date: "`r format(Sys.time(), '%Y/%m/%d')`"
+format:
+  pdf:
+    number-sections: true
+    pdf-engine: xelatex
+    documentclass: bxjsbook
+    classoption: xelatex, ja=standard, 12pt
+  html:
+    number-sections: true
+    self-contained: true
+highlight-style: tango
+---
+```
+
+### 2-2. R
+
+```R
+ ```{r} [Rのコード] ```
+```
+
+VSCodeで有効になっている場合左上に```Run Cell```が表示され、個別に実行・確認できる
+
+### 2-3. example
+
+@fig-airquality further explores the impact of temperature on ozone level.
+
+```{r}
+#| label: fig-airquality
+#| fig-cap: Temperature and ozone level.
+#| warning: false
+
+library(ggplot2)
+
+ggplot(airquality, aes(Temp, Ozone)) + 
+  geom_point() + 
+  geom_smooth(method = "loess"
+)
+```
+

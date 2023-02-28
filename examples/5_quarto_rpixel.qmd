@@ -1,0 +1,431 @@
+# use rawdata
+
+## 画像の生成読み込み
+
+```{r}
+library(rpixel)
+library(imager)
+p <- PixelI32$new(10, 10)
+p$clear_rnd()
+i <- as.cimg(p$get_vec(), x=10, y=10)
+plot(i, interp=FALSE, axes=FALSE, main="Sample")
+```
+
+
+
+### FT
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+p <- rpixel$new("FT50A")
+p$pixel$read_file("../20220916_004231_577733_0.raw")
+df <- p$img_df()
+i <- as.cimg(df)
+plot(i, interp=FALSE, axes=FALSE, main="Sample")
+```
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+p <- rpixel$new("FT50A")
+p$pixel$clear_rnd()
+head(p$df())
+head(p$cimg_df())
+
+buf <- p$cimg_df() %>% 
+  mutate(value = if_else( 0 >= value, true = 0, false = value))  %>%
+  select(x=x, y=y, value=value)
+head(buf)
+plot(as.cimg(buf), interp=FALSE, main="Sample")
+```
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+p <- rpixel$new("FT50A")
+p$read_file("../20220916_004231_577733_0.raw")
+
+buf <- p$cimg_df() %>% 
+  mutate(value = if_else( 0 >= value, true = 0, false = value))  %>%
+  select(x=x, y=y, value=value)
+plot(as.cimg(buf), interp=FALSE, main="Sample")
+```
+
+### CP
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(yaml)
+sync <- as.yaml(list(
+  sof = "0b_11111111111111_00000000000000_00000000000000_10101011000000",
+  sol = "0b_11111111111111_00000000000000_00000000000000_10000000000000",
+  eof = "0b_11111111111111_00000000000000_00000000000000_10110110000000",
+  eol = "0b_11111111111111_00000000000000_00000000000000_10011101000000",
+  mask = "0b11111111111111111111111111111111111111111111111111111111",
+  trainingcode = "0b_00011100001111",
+  depth = as.integer(14),
+  width = as.integer(334),
+  height = as.integer(2072),
+  skipframe = as.integer(1)
+))
+p <- PixelI32$new(334, 2072)
+p$read_file_with_sync("../50a/Ch0.bin", sync)
+v <- p$get_vec()
+v[v >= 1000] <- 1000
+v <- v / 1000
+i <- as.cimg(v, x=334, y=2072)
+plot(i, interp=FALSE, axes=FALSE, main="Sample", rescale=FALSE)
+```
+
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(yaml)
+
+p <- rpixel$new("CP50A")
+p$read_file("../50a/Ch0.bin", 0)
+
+buf <- p$cimg_df() %>% 
+  mutate(value = if_else( 0 >= value, true = 0, false = value))  %>%
+  select(x=x, y=y, value=value)
+buf[buf$value >= 1000,]$value <- 1000
+head(buf)
+max(buf$value)
+plot(as.cimg(buf), interp=FALSE, main="Sample")
+```
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(yaml)
+read <- function(path, skipframe) {
+  p0 <- rpixel$new("CP50A")
+  p1 <- rpixel$new("CP50A")
+  p2 <- rpixel$new("CP50A")
+  p3 <- rpixel$new("CP50A")
+  p4 <- rpixel$new("CP50A")
+  p5 <- rpixel$new("CP50A")
+  p6 <- rpixel$new("CP50A")
+  p7 <- rpixel$new("CP50A")
+
+  p0$read_file(paste(path, "/Ch0.bin", sep = ""), skipframe)
+  p1$read_file(paste(path, "/Ch1.bin", sep = ""), skipframe)
+  p2$read_file(paste(path, "/Ch2.bin", sep = ""), skipframe)
+  p3$read_file(paste(path, "/Ch3.bin", sep = ""), skipframe)
+  p4$read_file(paste(path, "/Ch4.bin", sep = ""), skipframe)
+  p5$read_file(paste(path, "/Ch5.bin", sep = ""), skipframe)
+  p6$read_file(paste(path, "/Ch6.bin", sep = ""), skipframe)
+  p7$read_file(paste(path, "/Ch7.bin", sep = ""), skipframe)
+
+  v0 <- p0$cimg_df()$value
+  v1 <- p1$cimg_df()$value
+  v2 <- p2$cimg_df()$value
+  v3 <- p3$cimg_df()$value
+  v4 <- p4$cimg_df()$value
+  v5 <- p5$cimg_df()$value
+  v6 <- p6$cimg_df()$value
+  v7 <- p7$cimg_df()$value
+  x <- p0$pixel$get_index("x")
+  y <- p0$pixel$get_index("cimg_y")
+  x <- x * 8
+
+  # icmgは0startではなく1startなので+1
+  x <- x + 1
+  v0 <- data.frame(x = x, y = y, value = v0)
+  x <- x + 1
+  v1 <- data.frame(x = x, y = y, value = v1)
+  x <- x + 1
+  v2 <- data.frame(x = x, y = y, value = v2)
+  x <- x + 1
+  v3 <- data.frame(x = x, y = y, value = v3)
+  x <- x + 1
+  v4 <- data.frame(x = x, y = y, value = v4)
+  x <- x + 1
+  v5 <- data.frame(x = x, y = y, value = v5)
+  x <- x + 1
+  v6 <- data.frame(x = x, y = y, value = v6)
+  x <- x + 1
+  v7 <- data.frame(x = x, y = y, value = v7)
+
+  # 各画像のmarge
+  v0 <- rbind(v0, v1)
+  v0 <- rbind(v0, v2)
+  v0 <- rbind(v0, v3)
+  v0 <- rbind(v0, v4)
+  v0 <- rbind(v0, v5)
+  v0 <- rbind(v0, v6)
+  v0 <- rbind(v0, v7)
+  v0
+}
+
+df <- read("../50a", 0)
+
+# cimgのdepthは0-1なのでclip後規格化
+df[df$value >= 1000,]$value <- 1000
+df$value <- df$value / 1000
+# i <- as.cimg(v0, x=2672, y=2072)
+plot(as.cimg(df), interp=FALSE, axes=FALSE, main="Sample", rescale=FALSE)
+```
+
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(yaml)
+
+# buf <- shell('dotnet script', intern=T)
+# var lot = "a001";
+# var wf = 1;
+# var chip = 2;
+# var cond = "Dark"
+# Console.WriteLine($""" "*_{lot}_{wf}_{chip}_*/{cond}_Ch{ch:DD}.bin" """);
+# -> 正規表現 -> matchしたDir取得 
+# #exit
+
+rawread <- function(path, ch, skipframe) {
+  p <- rpixel$new("CP50A")
+  x <- p$pixel$get_index("x")
+  x <- x * 8 + ch + 1
+  y <- p$pixel$get_index("cimg_y")
+  p$read_file(paste(path, "/Ch", ch, ".bin", sep = ""), skipframe)
+  data.frame(x = x, y = y, value = p$cimg_df()$value)
+}
+read <- function(path, skipframe) {
+  v <- rawread(path, 0, skipframe)
+  for (i in 1:7) {
+    v <- rbind(v, rawread(path, i, skipframe))
+  }
+  v
+}
+
+df <- read("../50a", 1)
+
+# cimgのdepthは0-1なのでclip後規格化
+df[df$value >= 1000,]$value <- 1000
+df$value <- df$value / 1000
+# i <- as.cimg(v0, x=2672, y=2072)
+plot(as.cimg(df), interp=FALSE, axes=FALSE, main="Sample", rescale=FALSE)
+```
+
+## Bayer分割
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+buf <- p$cimg_df() %>% 
+  mutate(value = if_else( 0 >= value, true = 0, false = value))
+w <- max(buf$x) / 2
+h <- max(buf$y) / 2
+buf <- buf[buf$bayer == 0, c("value")]
+plot(as.cimg(buf,x=w,y=h), interp=FALSE, main="Sample")
+```
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+p <- rpixel$new("FT50A")
+buf <- p$cimg_df() %>% 
+  mutate(value = if_else( 0 >= value, true = 0, false = value)) %>%
+  filter(bayer == 2)
+w <- max(p$pixel$width()) / 2
+h <- max(p$pixel$height()) / 2
+plot(as.cimg(buf$value,x=w,y=h), interp=FALSE, main="Sample")
+```
+
+
+## エリア分割
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+data.frame(x = c("../20220916_004231_577733_0.raw")) %$% {
+  p <- rpixel$new("FT50A")
+  p$read_file(x[1])
+  df <- p$img_df()
+  # print(head(df))
+  # plot(as.cimg(df))
+  as.data.frame(as.cimg(
+    rep(0, length.out = p$size()), 
+    x=p$pixel$width(),
+    y=p$pixel$height()
+  )) %>%
+  mutate(value = if_else( 21<=x & x<=120 , true = "OB", false = "")) %>%
+  mutate(value = if_else( 271<=x & x<=2620 & 21<=y & y<=2026 , true = "EFF", false = value)) %>%
+  select(x=x,y=y,area=value) %>% 
+  right_join(df, by = c("x", "y"), multiple = "all")
+  } %>%
+  head()
+
+```
+
+
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+
+p <- rpixel$new("FT50A")
+p$pixel$read_file("../20220916_004231_577733_0.raw")
+df <- p$img_df()
+
+# エリアの設定
+df2 <- as.data.frame(as.cimg(rep(0, length.out = p$size()), x=p$pixel$width(), y=p$pixel$height())) %>%
+  mutate(value = if_else( 21<=x & x<=120 , true = "OB", false = "")) %>%
+  mutate(value = if_else( 271<=x & x<=2620 & 21<=y & y<=2026 , true = "EFF", false = value)) %>%
+  mutate(bayer = case_when(
+    x %% 2 == 0 & y %% 2 == 0 ~ "R",
+    x %% 2 == 0 & y %% 2 == 1 ~ "Gr",
+    x %% 2 == 1 & y %% 2 == 0 ~ "Gb",
+    x %% 2 == 1 & y %% 2 == 1 ~ "B",
+    TRUE ~ "else"
+  )) %>%
+  select(x=x,y=y,area=value,bayer=bayer)
+head(df2)
+```
+
+
+
+```{r}
+library(ggplot2)
+src <- df %>% 
+  left_join(df2, by = c("x", "y"), multiple = "all")
+
+buf <- src[src$area == "OB",] %>%
+  group_by(y) %>%
+  reframe(n = n(), ob = mean(value)) %>%
+  left_join(src, .[,c("y", "ob")], by = c("y"), multiple = "all") %>%
+  mutate(diff = value - ob) %>%
+  select(x = x, y = y, org = value, ob = ob, value = diff, area=area, bayer=bayer)
+
+mean(buf[buf$area=="OB",]$value)
+mean(buf[buf$area=="EFF" & buf$bayer=="Gr",]$value)
+median <- median(buf[buf$area=="EFF",]$value)
+sd(buf[buf$area=="EFF",]$value)
+
+buf %>%
+  mutate(value = if_else(value < -30, true = -30, false = value)) %>%
+  mutate(value = if_else(value > 30, true = 30, false = value)) %>%
+  ggplot() + 
+  geom_histogram(aes(x = value)) +
+  geom_vline(xintercept = median, linetype ="dashed")
+```
+
+```{r}
+library(imager)
+library(rpixel)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(yaml)
+
+rawread <- function(path, ch, skipframe) {
+  p <- rpixel$new("CP50A")
+  x <- p$pixel$get_index("x")
+  x <- x * 8 + ch + 1
+  y <- p$pixel$get_index("cimg_y")
+  p$read_file(paste(path, "/Ch", ch, ".bin", sep = ""), skipframe)
+  data.frame(x = x, y = y, value = p$cimg_df()$value)
+}
+read <- function(path, skipframe) {
+  v <- rawread(path, 0, skipframe)
+  for (i in 1:7) {
+    v <- rbind(v, rawread(path, i, skipframe))
+  }
+  v
+}
+
+df <- read("../50a", 1)
+
+# cimgのdepthは0-1なのでclip後規格化
+df[df$value >= 1000,]$value <- 1000
+df$value <- df$value / 1000
+plot(as.cimg(df), interp=FALSE, axes=FALSE, main="Sample", rescale=FALSE)
+```
+
+
+
+# controlchart
+
+```{r}
+library(ggplot2)
+library(ggQC)
+ 
+### Make up some demo data (load your file here instead)
+set.seed(5555)
+Process_Data <- 
+  data.frame(
+   Process=rep(c("A"), each = 30), #Process A 
+   Run_Number=c(1:30),             #Run Order    
+   Value = c(rnorm(n = 30, mean = 30.5, sd = 1)) #Process A Random Data
+   )
+ 
+### Make the plot
+XmR_Plot <- 
+  ggplot(Process_Data, aes(x = Run_Number, y = Value)) + #init ggplot
+  geom_point() + geom_line() + # add the points and lines
+  stat_QC(method = "XmR",      # specify QC charting method
+          auto.label = T,      # Use Autolabels
+          label.digits = 2,    # Use two digit in the label
+          show.1n2.sigma = T   # Show 1 and two sigma lines
+          ) +  
+  scale_x_continuous(expand =  expand_scale(mult = .15))  # Pad the x-axis
+ 
+### Draw the plot - Done
+XmR_Plot
+```
+
+
+
+
+# df <- p$img_df() %>% select(x,y, value0=value)
+# for (i in 1:7) {
+#   p$pixel$clear_rnd()
+#   df <- df %>% left_join(p$img_df(), 
+#     by=c("x","y"),
+#     multiple = "all"
+#   ) %$%
+#   eval(parse(text = paste0("rename(.,value", i, " = value)")))
+# }
+# df <- df %>% mutate(
+#   mean = apply(.[,c("value0","value1","value2","value3","value4","value5","value6","value7")], 1, mean),
+#   sd = apply(.[,c("value0","value1","value2","value3","value4","value5","value6","value7")], 1, sd)
+#   )
+
+# hist(df$value0)
+# hist(df$mean,add=TRUE)
+

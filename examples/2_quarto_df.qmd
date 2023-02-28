@@ -1,0 +1,223 @@
+# DataFrame
+
+## vector to dataframe
+
+```{r}
+df1 <- data.frame(x = c(1,2), y = c(10,20))
+df1
+df2 <- data.frame(x = 1:3, y = 10:30)
+df2
+```
+
+## martix to dataframe
+
+```{r}
+mat <- matrix(c(1:10),nrow=2,ncol=5)
+as.data.frame(mat)
+# V1 V2 V3 V4 V5
+# 1  1  3  5  7  9
+# 2  2  4  6  8 10
+as.vector(mat)
+# [1]  1  2  3  4  5  6  7  8  9 10
+```
+
+## calculation
+
+```{r}
+df <- data.frame(x = c(1,2), y = c(10,20))
+df$x <- df$x + 1
+df$y <- df$y * 20
+df
+```
+
+```{r}
+df <- data.frame(x = c(1,2), y = c(10,20))
+df[df$x == 2,]$y <- df[df$x == 2,]$y + 100
+df
+```
+
+```{r}
+df1 <- data.frame(x = c(1,2), y = c(10,20))
+df2 <- data.frame(x = c(3,4), y = c(30,40))
+df <- rbind(df1, df2)
+df
+```
+
+```{r}
+library(dplyr)
+df1 <- data.frame(x = c(1,2), y = c(10,20))
+df2 <- data.frame(x = c(1,2), z = c(30,40))
+df <- left_join(df1, df2)
+df
+df <- select(df, x_index = x, y_index = y, value = z)
+df
+df[,c("x_index", "value")]
+```
+
+```{r}
+df <- data.frame(x = 1:30, y = 1:3)
+df
+df %>% group_by(y) %>% summarize(n = n())
+```
+
+```{r}
+# フレーム加算
+library(dplyr)
+df1 <- data.frame(x = c(1,2,3,1,2,3), y = c(1,1,1,2,2,2), z = c(1,1,1,1,1,1))
+df2 <- data.frame(x = c(1,2,3,1,2,3), y = c(1,1,1,2,2,2), z = c(1,2,3,4,5,6))
+
+df <- left_join(df1, df2, by = c("x","y"))
+# merge(df1, df2, by = c("x", "y"))
+
+df %>% mutate(sum = rowSums(df[,c("z.x","z.y")]))
+df %>% mutate(mean = apply(df[,c("z.x","z.y")], 1, mean))
+
+left_join(df1, df2, by = c("x","y")) %>% summarize(x=x, y=y, add = z.x + z.y)
+```
+
+```{r}
+# summarizeは dplyr1.1.0より非推奨
+library(dplyr)
+df1 <- data.frame(x = c(1,2,3,1,2,3), y = c(1,1,1,2,2,2), z = c(1,1,1,1,1,1))
+df2 <- data.frame(x = c(1,2,3,1,2,3), y = c(1,1,1,2,2,2), z = c(1,2,3,4,5,6))
+
+left_join(df1, df2, by = c("x","y")) %>%
+  reframe(x=x, y=y, add = z.x + z.y)
+```
+
+## col
+
+```{r}
+# summarizeは dplyr1.1.0より非推奨
+library(dplyr)
+df <- data.frame(x = c(1,2,3,1,2,3), y = c(1,1,1,2,2,2), z = c(1,1,1,1,1,1))
+
+df %>% select(x, y)
+df %>% select(-z)
+df[,c("x", "y")]
+
+buf <- "z"
+df %>% select(all_of(buf))
+
+df[,buf]
+df %>% select(buf) %>% as.vector()
+df %>% select(buf) %>% .[,buf]
+
+df %>% select(dplyr::everything(), X = x)
+```
+
+## group
+```{r}
+
+library(dplyr)
+df <- data.frame(team=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+                 points=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+                 index=c(1, 2, 3, 4, 5, 6, 7, 8, 9))
+
+df %>% group_by(team) %>% summarise(n = n())
+
+df %>% group_by(team) %>% mutate(n = n())
+
+df %>% group_by(team) %>% summarise(n = n(), max = max(points))
+
+df %>% group_by(team) %>% filter(any(points == 10))
+
+df %>% group_by(team) %>% filter(points == max(points))
+
+df$i <- rownames(df)(df[,"team"])
+
+df
+
+```
+
+```{r}
+#重複行削除
+library(dplyr)
+df <- data.frame(team=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+                 team1=c('A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'E'),
+                 points=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+                 index=c(1, 2, 3, 4, 5, 6, 7, 8, 9))
+
+df %>% distinct(team, .keep_all = T)
+df %>% distinct(team, team1, .keep_all = T)
+
+df %>% group_by(team) %>% slice(which.max(points))
+
+df %>% group_by(team) %>% 
+  mutate(n1 = n()) %>%
+  slice(which.max(points)) %>% 
+  mutate(n2 = n())
+
+df %>% group_by(team) %>% 
+  mutate(n1 = n()) %>%
+  filter(points == max(points)) %>% 
+  filter(index == max(index))
+
+```
+
+```{r}
+
+library(dplyr)
+df <- data.frame(team=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+                 points=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+                 index=c(1, 2, 3, 4, 5, 6, 7, 8, 9))
+
+rownames(df) <- c("row1", "row2", "row3", "row4", "row5", "row6", "row7", "row8", "row9")
+
+df
+
+rownames(df) <- NULL
+
+df
+
+```
+
+## shell script to dataframe 
+
+```{r}
+library(tidyverse)
+data <- shell("dotnet script hoge.csx", intern=T)
+data <- tibble(data)
+df <- data %>% separate(data, c("X", "Y"), sep="[:,]")
+df$X<-as.integer(df$X)
+df$Y<-as.numeric(df$Y)
+df
+plot(df)
+```
+
+- 文字列のseparateとcastは必須
+
+## SQLITE3 to dataframe
+
+":memory:"でプロセス間共有はできない
+
+```{r}
+library(DBI)
+# Create an ephemeral in-memory RSQLite database
+con <- dbConnect(RSQLite::SQLite(), ":memory:")
+dbSendQuery(con, "create table person(no int, name text)")
+dbListTables(con)
+dbDisconnect(con)
+```
+
+一時ファイルとして"temp.db"を指定
+
+```{r}
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "temp.db")
+as.data.frame(dbListTables(con))
+data <- dbReadTable(con, 'table1')
+dbDisconnect(con)
+plot(data)
+file.remove("temp.db")
+```
+
+## パイプ演算に関して
+
+- ```%>%``` : margrittrパッケージ（従来）
+  - 右辺は関数、関数オブジェクト
+  - 第一引数以外の場合はplace holder```.```が使用できる
+- ```|>``` : R4.1.0で導入された組み込みパイプ
+  - 右辺は関数呼び出しのみ
+  - place holder```.```が使用できない
+  - 組み込みの方が速い

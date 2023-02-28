@@ -1,0 +1,397 @@
+# read log
+
+## Rでのディレクトリ操作
+
+```{r}
+library(stringr)
+
+list.dirs("../", recursive=F)
+list.dirs("../", recursive=F, pattern="HS0156700A") # not work, patternつかえない
+list.files("../", recursive=T, full.names = TRUE, pattern=".*\\.txt$")
+
+# not work, ディレクトリ跨いだパターン記述できない
+list.files("../", recursive=T, full.names=T, pattern="20230215_P320_CP_HS0156700A_0/.*_.*_.*_.*_.*_.*\\.txt$")
+list.files("../", recursive=T, full.names=T, include.dirs=T, pattern="20230215_P320_CP_HS0156700A_0/.*_.*_.*_.*_.*_.*\\.txt$")
+
+#正規表現の生成
+glob2rx("*_*_*_*_*_*.txt")
+
+#組み合わせ
+pat1 <- glob2rx("*_*_CP_*_*/*.txt")
+pat2 <- glob2rx("*_*_*_*_*_*.txt")
+result <- str_extract(list.files("../", recursive=T, full.names=T, pattern=pat2), pattern=pat1)
+result[is.na(result)==F]
+```
+
+## 正規表現
+
+```{r}
+library(stringr)
+
+src <- "
+[Header]
+Cust_LotId=ABC
+Customer_Id=DEF
+"
+src
+str_extract(src, pattern = "^Cust_LotId=(.*)$") %>% na.omit %>% as.vector
+str_match(src, "Cust_LotId=(.+?)\n")
+```
+
+```{r}
+library(stringr)
+
+src <- "
+[Header]
+Cust_LotId=ABC
+Customer_Id=DEF
+"
+pat = "Cust_LotId=(.*)
+Customer_Id=(.*)
+"
+src
+pat
+
+str_match(src, pat)
+```
+
+
+```{r}
+library(stringr)
+library(magrittr)
+
+src <- scan("..//dummy_CP1_20230217003902.txt",sep = NULL, what = character())
+str_match(src, pattern = "^Cust_LotId=(.*)$") %>% na.omit %>% as.vector
+```
+
+```{r}
+library(stringr)
+library(magrittr)
+
+library(readr)
+# sep = "\n"しないためscanではなくread_file使う
+src <- read_file("..//20230215_P320_CP_HS0156700A_0/JHS20T1AC0_HS0156700A_20_CP23020028.00_CP1_20230217003902.txt")
+str_match(src, pattern = "Cust_LotId=(.+?)[\r\n|\n|\r]")[1,2]
+```
+
+```{r}
+library(stringr)
+library(magrittr)
+library(dplyr)
+library(readr)
+# sep = "\n"しないためscanではなくread_file使う
+src <- read_file("..//20230215_P320_CP_HS0156700A_0/dummy_CP1_20230217003902.txt")
+lot <- str_match(src, pattern = "Cust_LotId=(.+?)[\r\n|\n|\r]")[1,2]
+lot
+
+pat <- "TCNT#(.+?)SITE([\\s\\S]+?)Site   Fail   Total    Cate   Bin    XCoord   YCoord         TestTime\\(([0-9|.]+)ms\\)[^0-9]+?(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+)"
+dst <- as.data.frame(str_match_all(src, pattern = pat)) %>% 
+  select(TCNT=X2, TestTime=X4, Site=X5, Fail=X6, Total=X7, Cat=X8, Bin=X9, X=X10, Y=X11, data=X1) %>%
+  mutate(LOT = lot, TCNT=as.integer(TCNT))
+dst[,c("LOT","TCNT","TestTime","Cat","Bin","X","Y")]
+```
+
+```{r}
+library(stringr)
+library(magrittr)
+library(dplyr)
+library(readr)
+src <- read_file("..//20230215_P320_CP_HS0156700A_0/JHS20T1AC0_HS0156700A_20_CP23020028.00_CP1_20230217003902.txt")
+lot <- str_match(src, pattern = "Cust_LotId=(.+?)[\r\n|\n|\r]")[1,2]
+
+pat <- "TCNT#(.+?)SITE([\\s\\S]+?)Site   Fail   Total    Cate   Bin    XCoord   YCoord         TestTime\\(([0-9|.]+)ms\\)[^0-9]+?(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+)"
+pat_os <- "1004 0[\\s\\S]*?OS_POS[\\s]*?CH_TX2L1[\\s]*?([0-9|.]+)"
+
+dst <- as.data.frame(str_match_all(src, pattern = pat)) %>% 
+  select(TCNT=X2, TestTime=X4, Site=X5, Fail=X6, Total=X7, Cat=X8, Bin=X9, X=X10, Y=X11, data=X1) %>%
+  mutate(LOT = lot, TCNT=as.integer(TCNT)) %>% 
+  mutate(OS=as.numeric(str_match(.$data, pattern = pat_os)[,2]))
+
+dst[,c("LOT","TCNT","TestTime","Cat","Bin","X","Y","OS")]
+```
+
+## 特定の項目の抜き出し
+
+```{r}
+library(stringr)
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(readr)
+
+root <- "../"
+pat1 <- glob2rx("*_*_CP_*_*/*.txt")
+pat2 <- glob2rx("*_*_*_*_*_*.txt")
+
+get_param <- function(path, src){
+  pat <- "TCNT#(.+?)SITE([\\s\\S]+?)Site   Fail   Total    Cate   Bin    XCoord   YCoord         TestTime\\(([0-9|.]+)ms\\)[^0-9]+?(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+)"
+  pat_os <- "1004 0[\\s\\S]*?OS_POS[\\s]*?CH_TX2L1[\\s]*?([0-9|.]+)"
+
+  lot <- str_match(src, pattern = "Cust_LotId=(.+?)[\r\n|\n|\r]")[1,2]
+
+  dst <- as.data.frame(str_match_all(src, pattern = pat)) %>% 
+    select(TCNT=X2, TestTime=X4, Site=X5, Fail=X6, Total=X7, Cat=X8, Bin=X9, X=X10, Y=X11, data=X1) %>%
+    mutate(PATH=basename(path), LOT = lot, TCNT=as.integer(TCNT)) %>% 
+    # mutate(OS=as.numeric(str_match(.$data, pattern = pat_os)[,2]))
+    mutate( str_match(data, pattern = pat_os) %>% as_tibble(.name_repair = ~ c("matched", "OS")) %>% select(-matched) )
+}
+
+dst <- list.files(root, recursive=T, full.names=T, pattern=pat2) %>% 
+  str_extract(pattern=pat1) %>% 
+  {
+    df <- data.frame()
+    for(i in .) {
+      print(i)
+      src <- read_file(i)
+      df <- bind_rows(df, get_param(i, src))
+    }
+    df
+  }
+head(dst[,c("PATH","LOT","TCNT","TestTime","Cat","Bin","X","Y","OS")])
+plot(x=1:nrow(dst), y=dst$OS)
+```
+
+```{r}
+# foreachでの書き換え
+library(stringr)
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(readr)
+library(foreach)
+library(iterators)
+
+root <- "../"
+
+list.files(root, recursive=T, full.names=T, pattern=glob2rx("*_*_*_*_*_*.txt")) %>% 
+str_extract(pattern=glob2rx("*_*_CP_*_*/*.txt")) %>% 
+foreach(i=., .combine='rbind') %do% data.frame(PATH = i, SRC = read_file(i)) %>%
+mutate(CNT=nchar(SRC)) %>%
+mutate( str_match(SRC, pattern = "Cust_LotId=(.+?)[\r\n|\n|\r]") %>% as_tibble(.name_repair = ~ c("matched", "LOT")) %>% select(-matched) ) %>%
+mutate( str_match(SRC, pattern = "Wafer_No=(.+?)[\r\n|\n|\r]") %>% as_tibble(.name_repair = ~ c("matched", "WF")) %>% select(-matched) ) %$%
+{
+  foreach(i=1:nrow(.), .combine='rbind') %do% 
+  {
+    pat <- "TCNT#(.+?)SITE([\\s\\S]+?)Site   Fail   Total    Cate   Bin    XCoord   YCoord         TestTime\\(([0-9|.]+)ms\\)[^0-9]+?(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+) +(\\d+)"
+    src <- .[i,]$SRC
+    dst <- as.data.frame(str_match_all(src, pattern = pat)) %>% 
+    select(TCNT=X2, TestTime=X4, Site=X5, Fail=X6, Total=X7, Cat=X8, Bin=X9, X=X10, Y=X11, data=X1)
+    bind_cols(.[i,], dst)
+  } 
+} %$% {
+  foreach(i=1:nrow(.), .combine='rbind') %do%
+  {
+    pat_os <- "1004 0[\\s\\S]*?OS_POS[\\s]*?CH_TX2L1[\\s]*?([0-9|.]+)"
+    pat_os2 <- "1004 0[\\s\\S]*?OS_POS[\\s]*?CH_GRSTL1[\\s]*?([0-9|.]+)"
+    
+    src <- .[i,]$data
+    # mutate( str_match(src, pattern = pat_os) %>% as_tibble(.name_repair = ~ c("matched", "1VALUE")) %>% select(-matched) )
+    # mutate( str_match(data, pattern = pat_os2) %>% as_tibble(.name_repair = ~ c("matched", "2VALUE")) %>% select(-matched) )
+    df <- data.frame()
+    df <- bind_rows(df, data.frame(.[i,], KEY="CH_TX2L1", VALUE=as.numeric(str_match(src, pattern = pat_os)[,2])))
+    df <- bind_rows(df, data.frame(.[i,], KEY="CH_GRSTL1", VALUE=as.numeric(str_match(src, pattern = pat_os2)[,2])))
+    df
+  } 
+} %>% select(-SRC, -PATH, -data) -> dst
+
+head(dst)
+plot(x=1:nrow(dst[dst$KEY=="CH_GRSTL1",]), y=dst[dst$KEY=="CH_GRSTL1",]$VALUE)
+```
+
+## rpixelでの簡易表現
+
+```{r}
+
+library(stringr)
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(readr)
+library(foreach)
+library(iterators)
+library(rpixel)
+
+df <- rpx_log("../", pat_file = glob2rx("*_*_*_*_*_*.txt"), pat_path = glob2rx("*_*_CP_*_*/*.txt")) %>%
+rpx_header(key=c("Cust_LotId", "Wafer_No", "start_time")) %>%
+rpx_chip() %>%
+rpx_test(test = c("OS_POS", "PixelTest_L80"), signal = c("CH_TX2L1","Imagedata"))
+# rpx_test()
+# rpx_test(test = "all")
+
+names(df)
+
+# 被っているデータの検出
+df %>% 
+  group_by(Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  summarise(n = n()) %>%
+  filter(n > 2) %>%
+  select(Cust_LotId, Wafer_No, TestName, Signal, X, Y, n)
+
+# start_timeで被り回避（別ファイルで再測）
+# TCNTで被り回避（同ファイルで複数回タッチ）
+df %>% 
+  group_by(start_time, TCNT, Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) %>%
+  select(Cust_LotId, Wafer_No, TestName, Signal, X, Y, n)
+
+```
+
+```{r}
+# ファイル名のタイムスタンプを使用する場合
+df %>%
+  mutate( str_match(.[,"PATH"], "_(\\d+).txt") %>% as_tibble(.name_repair = ~ c("matched", "timestamp")) %>% select(-matched) ) %>%
+  group_by(timestamp, Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) %>%
+  select(Cust_LotId, Wafer_No, TestName, Signal, X, Y, n)
+
+# とりあえずかぶってない測定の中からPixelTest_L80 Imagedataの取得ができているもの
+# summarise使うと行のデータが失われるのでmutateを使う
+df %>%
+  group_by(Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  mutate(n = n()) %>% 
+  # slice(which.max(points)) %>%
+  filter(n == 1, Signal=="Imagedata") %>%
+  df %>% group_by(team) %>% slice(which.max(points))
+  select(PATH, Wafer_No, X, Y) -> dst
+
+for(i in 1:nrow(dst)){
+  temp <- dst[i,]
+  # logからraw参照するときのサンプル
+  print(paste(temp$PATH, temp$X, temp$Y))
+}
+```
+
+## time
+
+```{r}
+
+library(stringr)
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(readr)
+library(foreach)
+library(iterators)
+library(rpixel)
+
+df <- rpx_log("../", 
+  pat_file = glob2rx("*_*_*_*_*_*.txt"),
+  pat_path = glob2rx("*_*_CP_*_*/*.txt")) %>%
+  mutate( str_match(.[,"PATH"], "_(\\d+).txt") %>% as_tibble(.name_repair = ~ c("matched", "timestamp")) %>% select(-matched) ) %>%
+  filter(timestamp > 20230218000000) %>%
+  select(-SRC)
+df
+
+```
+
+```{r}
+df <- data.frame(timestamp = c("20230218000000")) %>%
+  mutate(
+    str_match(.[,"timestamp"], "(....)(..)(..)(..)(..)(..)") %>%
+    as_tibble(.name_repair = ~ c("matched", "y", "m", "d", "h", "mm", "s")) %>% 
+    mutate(tt = paste(paste(y,m,d,sep = "-"), paste(h,mm,s,sep = ":"))) %>%
+    mutate(tt2 = as.POSIXct(tt)) %>%
+    select(tt,tt2)
+  )
+
+df[,"tt2"]
+
+```
+
+```{r}
+# ファイル名のタイムスタンプを使用する場合
+df %>%
+  mutate( str_match(.[,"PATH"], "_(\\d+).txt") %>% as_tibble(.name_repair = ~ c("matched", "timestamp")) %>% select(-matched) ) %>%
+  group_by(timestamp, Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) %>%
+  select(Cust_LotId, Wafer_No, TestName, Signal, X, Y, n)
+
+# とりあえずかぶってない測定の中からPixelTest_L80 Imagedataの取得ができているもの
+# summarise使うと行のデータが失われるのでmutateを使う
+df %>%
+  group_by(Cust_LotId, Wafer_No, TestName, Signal, X, Y) %>%
+  mutate(n = n()) %>% 
+  # slice(which.max(points)) %>%
+  filter(n == 1, Signal=="Imagedata") %>%
+  df %>% group_by(team) %>% slice(which.max(points))
+  select(PATH, Wafer_No, X, Y) -> dst
+
+for(i in 1:nrow(dst)){
+  temp <- dst[i,]
+  # logからraw参照するときのサンプル
+  print(paste(temp$PATH, temp$X, temp$Y))
+}
+```
+
+## csxでの正規表現の生成
+
+```{r}
+library(stringr)
+
+# glob2rx
+glob2rx("*_*_*_*_*_*.txt")
+
+# R直書き
+pat_os <- "[\\s\\S]*?OS_POS[\\s]*?CH_TX2L1[\\s]*?([0-9|.]+)"
+
+# csx生成
+csx <- shell('dotnet script', intern=T) %>% 
+  paste(collapse = "\n") %>%
+  str_match_all(pattern='<([^<>]*?)>') %>% as.data.frame %>% .[,"X2"]
+var name = new List<string>(){ "OS_POS", "OS_NEG" };
+var pin = "CH_TX2L1";
+foreach(var i in name)
+Console.Write($""" <[\s\S]*?{i}[\s]*?{pin}[\s]*?([0-9|.]+)> """);
+#exit
+
+pat_os
+csx
+```
+
+## 正規表現/DFの操作注意点
+
+- 欠損値の作成
+  - ControlChart使うために先に欠損値をmap, Full test項目から埋める 
+- 重複値の処理
+  - 同じフロー内で被ってる（指定は初出しか参照しない）
+  - チップが被ってる（二回測定, timestampで区別可能）  
+- Unitの処理
+
+- 空白
+  - ないと区別できないところがある (Test名が既知なら検索しやすい)
+  - 先頭だけ大文字にしたSnake_caseなど命名規則で回避可能
+- ハイフンはピリオドはマイナスと混同するので避ける
+
+- ```=```に```:```混ざってるけどあれなに？
+
+
+
+## memo
+
+```{r}
+# menu(c("omlet", "hamburger steak", "chocolate"), title="Which do you like the best?")
+
+test="all"
+
+if(!is.vector(test) & test %in% "all") { 
+  print("yes") 
+} else { 
+  print("no") 
+}
+```
+
+```{r}
+library(arrow)
+library(dplyr)
+open_dataset("temp.parquet") |>
+  as.data.frame() -> df
+
+names(df)
+df %>%
+  select(tcnt, testtime)
+
+```
+
