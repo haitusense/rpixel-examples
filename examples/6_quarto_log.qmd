@@ -383,15 +383,5 @@ if(!is.vector(test) & test %in% "all") {
 }
 ```
 
-```{r}
-library(arrow)
-library(dplyr)
-open_dataset("temp.parquet") |>
-  as.data.frame() -> df
 
-names(df)
-df %>%
-  select(tcnt, testtime)
-
-```
 

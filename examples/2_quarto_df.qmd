@@ -187,30 +187,7 @@ plot(df)
 
 - 文字列のseparateとcastは必須
 
-## SQLITE3 to dataframe
 
-":memory:"でプロセス間共有はできない
-
-```{r}
-library(DBI)
-# Create an ephemeral in-memory RSQLite database
-con <- dbConnect(RSQLite::SQLite(), ":memory:")
-dbSendQuery(con, "create table person(no int, name text)")
-dbListTables(con)
-dbDisconnect(con)
-```
-
-一時ファイルとして"temp.db"を指定
-
-```{r}
-library(DBI)
-con <- dbConnect(RSQLite::SQLite(), "temp.db")
-as.data.frame(dbListTables(con))
-data <- dbReadTable(con, 'table1')
-dbDisconnect(con)
-plot(data)
-file.remove("temp.db")
-```
 
 ## パイプ演算に関して
 

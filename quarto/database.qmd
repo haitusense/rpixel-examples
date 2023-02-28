@@ -1,0 +1,152 @@
+# DataBase
+
+||csv|parquet|SQLite3|
+|:--|:--:|:--:|:--:|
+|||列指向|行指向|
+
+
+
+## CSVの読み書き
+
+```{r}
+df <- data.frame(
+    x=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+    y=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+    z=c(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  )
+write.csv(x = df, file = "sample.csv")
+```
+
+```{r}
+df <- read.csv("samples/sample.csv")
+df
+```
+
+
+## parquetの読み書き
+
+```{r}
+library(arrow)
+df <- data.frame(
+    x=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+    y=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+    z=c(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  )
+
+tmp <- tempfile(fileext = ".parquet")
+tmp
+write_parquet(df, tmp)
+
+write_parquet(df, "sample.parquet")
+```
+
+```{r}
+library(arrow)
+src <- open_dataset("samples/sample.parquet")
+
+src
+# FileSystemDataset with 1 Parquet file
+# x: string
+# y: double
+# z: double
+
+src |> as.data.frame()
+#   x  y z
+# 1 A 10 1
+# 2 A 15 2
+# ...
+```
+
+
+
+## SQLITE3 to dataframe
+
+### dataframe
+
+```r
+install.packages("RSQLite") 
+install.packages("DBI")
+```
+
+```{r}
+library(RSQLite)
+df <- data.frame(
+    x=c('A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'),
+    y=c(10, 15, 8, 4, 10, 10, 12, 12, 7),
+    z=c(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  )
+
+# 新規作成or上書き
+# 拡張子は.db .db3 .sqlite . sqlite3
+# in-memory RSQLite database使用時はファイル名を ":memory:"
+#   ":memory:"でプロセス間共有はできない
+con <- dbConnect(RSQLite::SQLite(), "sample.db3", synchronous = "off")
+
+con
+# <SQLiteConnection>
+#   Path: hogehoge\sample.db
+#   Extensions: TRUE
+
+dbWriteTable(con, "Table_1", head(df))
+
+# DB接続解除
+dbDisconnect(con)
+
+# ファイルが不必要な場合
+file.remove("sample.db3")
+```
+
+
+```{r}
+library(RSQLite)
+con <- dbConnect(RSQLite::SQLite(), "samples/sample.db3", synchronous = "off")
+
+dbListTables(con)
+# [1] "Table_1"
+
+dbReadTable(con, 'table_1')
+#   x  y z
+# 1 A 10 1
+# 2 A 15 2
+# ...
+
+dbDisconnect(con)
+```
+
+### Queryで直接操作
+
+":memory:"でプロセス間共有はできない
+
+```{r}
+library(DBI)
+
+# Create an ephemeral in-memory RSQLite database
+con <- dbConnect(RSQLite::SQLite(), ":memory:")
+
+dbSendQuery(con, "create table person(no int, name text)")
+dbListTables(con)
+
+dbDisconnect(con)
+```
+
+
+## DuckDB
+
+- SQLiteのOLAP版
+  - OLTP:オンライントランザクション処理 OLAP:多次元分析
+- Pandas・dplyr比較
+  - 高速（クエリの最適化を行う）
+  - SQL（表現力や移植性
+  - トランザクションが使える
+
+```r
+install.packages("duckdb")
+install.packages("DBI")
+```
+
+```{r}
+library("DBI")
+con = dbConnect(duckdb::duckdb(), ":memory:")
+dbWriteTable(con, "iris", iris)
+dbGetQuery(con, 'SELECT "Species", MIN("Sepal.Width") FROM iris GROUP BY "Species"')
+```
