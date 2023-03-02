@@ -263,6 +263,30 @@ for(i in 1:nrow(dst)){
 }
 ```
 
+- develop230228から有効
+
+```{r}
+library(rpixel)
+library(dplyr)
+library(magrittr)
+
+p <- RpxLog$new("../dummy.txt")
+p$header_to_df()
+
+head(p$body_to_df())
+p$body_to_df() %>% filter(key=="ADC")
+
+a <- p$body_to_df()
+# 
+head(
+a %>% 
+  left_join(a %>% filter(key=="XCoord") %>% select(tcnt, x=value) , by="tcnt") %>% 
+  left_join(a %>% filter(key=="YCoord") %>% select(tcnt, y=value) , by="tcnt")
+)
+
+```
+
+
 ## time
 
 ```{r}

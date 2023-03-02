@@ -13,11 +13,7 @@ plot(i, interp=FALSE, axes=FALSE, main="Sample")
 p$get_df()
 ```
 
-```{r}
-library(rpixel)
-p <- RpxLog$new("../dummy.txt")
-p$header_to_df()
-```
+
 
 
 
