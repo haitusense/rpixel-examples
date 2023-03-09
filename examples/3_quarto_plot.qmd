@@ -1,5 +1,7 @@
 # plot
 
+## 1. basic
+
 ```{r}
 df <- data.frame(x = 1:20, y = 1:20)
 plot(df)
@@ -10,7 +12,9 @@ df <- data.frame(x = 1:20, y = 1:20, z = 31:50)
 plot(df)
 ```
 
-## hist
+## 2. histogram
+
+## 2-1. basic 
 
 ```{r}
 vec <- iris[iris$Species %in% "setosa",]$Sepal.Length
@@ -92,7 +96,7 @@ linetype
 
 [Cheatsheet](https://github.com/rstudio/cheatsheets/blob/main/data-visualization.pdf)
 
-## hist with imager
+## 2-2. with imager
 
 ```{r}
 library(imager)
@@ -120,6 +124,8 @@ df <- as.data.frame(grayscale(boats))
 hist(df$value)
 ```
 
+## 3. lineprofile
+
 ```{r}
 # v-lineprofile
 library(dplyr)
@@ -144,7 +150,9 @@ head(df)
 plot(x=df$x, y=df$mean)
 ```
 
-## controlchart
+## 4. controlchart
+
+### 4-1. basic
 
 ```{r}
 library(ggplot2)
@@ -211,7 +219,76 @@ XmR_Plot <-
 ### Draw the plot - Done
 XmR_Plot
 ```
-## map
+
+### 4-2. application 
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+df <- data.frame(
+  idx = 1:100,
+  value = rnorm(100,0,1), 
+  wf = c(rep(1, 20),rep(2, 20),rep(3, 20),rep(4, 20),rep(5, 20)) 
+)
+df[34,]$value <- 4.8
+df[70,]$value <- NA
+df$wf <- as.factor(df$wf)
+
+# 計算
+df_mean <- mean(df$value, na.rm = TRUE)
+df_median <- median(df$value, na.rm = TRUE)
+df_sd <- sd(df$value, na.rm = TRUE)
+plus3sig <- df_mean+3*df_sd
+minus3sig <- df_mean-3*df_sd
+limit_hi <- 5
+limit_lo <- -5
+
+# 外れ値の処理
+df %<>% mutate(thr = ifelse(value >= 4.7, "out", "in"))
+
+# クリップ処理
+df %<>% mutate(value = ifelse(value >= 4.7, 4.7, value))
+
+# 描画
+p1 <- ggplot(df, aes(x = value)) +
+      scale_x_continuous(limits=c(limit_lo, limit_hi)) +
+      geom_histogram() + coord_flip() + scale_y_reverse() +
+      annotate("segment", y = -Inf, yend = Inf, x = df_mean, xend = df_mean) +
+      annotate("segment", y = -Inf, yend = Inf, x = df_median, xend = df_median, linetype=2) +
+      annotate("segment", y = -Inf, yend = Inf, x = plus3sig, xend = plus3sig, linetype=2) +
+      annotate("segment", y = -Inf, yend = Inf, x = minus3sig, xend = minus3sig, linetype=2)
+
+p2 <- ggplot(data=df) +
+      scale_y_continuous(limits=c(limit_lo, limit_hi)) +
+      geom_line(aes(x=1:nrow(df), y=value), linetype=3) +
+      geom_point(aes(x=1:nrow(df), y=value, colour=wf, shape=thr)) +
+      scale_shape_manual(values = c(16,4)) +
+      annotate("segment", x = -Inf, xend = Inf, y = df_mean, yend = df_mean) +
+      annotate("segment", x = -Inf, xend = Inf, y = plus3sig, yend = plus3sig, linetype=2) +
+      annotate("segment", x = -Inf, xend = Inf, y = minus3sig, yend = minus3sig, linetype=2) +
+      annotate("text", x = -Inf, y = df_mean, label = "mean", hjust = "inward", vjust = -0.4) +
+      annotate("text", x = -Inf, y = plus3sig, label = paste0("3sigma\n",plus3sig), hjust = "inward", vjust = -0.4)
+
+# Wfの先頭チップの取り出し
+wfstart <- df %>%
+  group_by(wf) %>%
+  slice(which.min(idx))
+for(i in 1:nrow(wfstart)) {
+  p2 <- p2 +
+    annotate("segment", y = -Inf, yend = Inf, x = wfstart[i,]$idx, xend = wfstart[i,]$idx) +
+    annotate("text", x = wfstart[i,]$idx, y = -Inf, label = paste("wf", wfstart[i,]$wf), vjust = "inward", hjust = -0.4)
+}
+
+
+p <- gridExtra::grid.arrange(p1, p2, nrow = 1, widths=c(1,4))
+p
+```
+
+
+
+
+## 5. map
 
 ```{r}
 library(ggplot2)
@@ -222,3 +299,8 @@ ggplot(df, aes(x = x, y = y, fill = z)) +
             color = "black", size = 2.5)
 ```
 
+## 6. 相関分析
+
+```{r}
+
+```

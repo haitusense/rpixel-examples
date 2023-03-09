@@ -10,7 +10,7 @@ p$clear_rnd()
 i <- as.cimg(p$get_vec(), x=10, y=10)
 plot(i, interp=FALSE, axes=FALSE, main="Sample")
 
-p$get_df()
+df <- p$get_df()
 ```
 
 
